@@ -129,9 +129,9 @@ jobs:
           [ -n "$changes" ]  && out+="## :wrench: Изменения\n\n$changes\n"
           [ -n "$others" ]   && out+="## :information_source: Примечания\n\n$others\n"
           {
-            echo 'changelog<<EOF'
-            echo -e "${out}"
-            echo 'EOF'
+            echo "changelog<<'EOF'"
+            echo -n "${out}"
+            echo "EOF"
           } | tee -a "${GITHUB_OUTPUT}"
 
       - name: Create prerelease
