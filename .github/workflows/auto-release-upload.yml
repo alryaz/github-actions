@@ -114,11 +114,11 @@ jobs:
           breaking="" features="" fixes="" changes="" others=""
           while IFS= read -r l; do
             case "$l" in
-              BREAKING CHANGE: *) breaking+="- ${#BREAKING CHANGE*}"$\n';;
-              feat: *) features+="- ${l#feat*}"$'\n';;
-              fix: *) fixes+="- ${l#fix*}"$'\n';;
-              refactor: *) changes+="- ${l#refactor*}"$'\n';;
-              chore: bump v*) continue;;  # Ignore version updates
+              BREAKING\ CHANGE:\ *) breaking+="- ${#BREAKING CHANGE*}"$\n';;
+              feat:\ *) features+="- ${l#feat*}"$'\n';;
+              fix:\ *) fixes+="- ${l#fix*}"$'\n';;
+              refactor:\ *) changes+="- ${l#refactor*}"$'\n';;
+              chore:\ bump\ v*) continue;;  # Ignore version updates
               "") ;;
               *) others+="- $l"$'\n';;
             esac
