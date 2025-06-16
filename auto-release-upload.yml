@@ -8,11 +8,13 @@ on:
         required: true
       TELEGRAM_TOKEN:
         required: true
-      TELEGRAM_TO:
-        required: true
 
 permissions:
   contents: write
+
+env:
+  # t.me/alryaz_ha_addons
+  TELEGRAM_TO: "-1001326752860"
 
 jobs:
   detect:
@@ -187,7 +189,7 @@ jobs:
       - name: Send Telegram message
         uses: appleboy/telegram-action@master
         with:
-          to: ${{ secrets.TELEGRAM_TO }}
+          to: ${{ env.TELEGRAM_TO }}
           token: ${{ secrets.TELEGRAM_TOKEN }}
           message: ${{ steps.prepare.outputs.message }}
           format: markdown
