@@ -203,14 +203,14 @@ jobs:
           HAMIN: ${{ needs.detect.outputs.compatibility }}
         run: |
           REPO="${GITHUB_REPOSITORY##*/}"
-          HACS="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${VERSION}/hacs.json"
-
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${VERSION}"
+          
           {
             echo "message<<EOF"
             echo "✅ Новый релиз **${VERSION}** проекта **${REPO}** опубликован!"
             echo
-            echo "Ссылка на GitHub: $URL"
-            echo "Совместимость: HA ≥${compatibility}"
+            echo "– Ссылка на [релиз на GitHub](${URL})"
+            echo "– Версия Home Assistant: ≥${HAMIN}"
             echo
             echo "#$REPO" | awk -F'-' '{for (i=1; i<=NF; i++) printf i==1 ? tolower($i) : toupper(substr($i,1,1)) tolower(substr($i,2)); print ""}'
             echo "#homeassistant"
