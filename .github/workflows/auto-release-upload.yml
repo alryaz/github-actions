@@ -182,7 +182,8 @@ jobs:
   notify:
     name: Notify Telegram
     needs: [detect, prerelease]
-    runs-on: ubuntu-lates  steps:
+    runs-on: ubuntu-latest
+    steps:
       - name: Install GitHub CLI
         run: |
           sudo apt-get update
