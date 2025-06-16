@@ -4,8 +4,8 @@ name: Prerelease on Version Bump
 on:
   workflow_call:
     secrets:
-      GITHUB_TOKEN:
-        required: true
+      # GITHUB_TOKEN:
+      #   required: true
       TELEGRAM_TOKEN:
         required: true
 
