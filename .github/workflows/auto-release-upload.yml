@@ -122,6 +122,10 @@ jobs:
               'refactor': ('wrench', 'Изменения'),
               'other': ('information_source', 'Примечания'),
           }
+          ignore = {
+              'This reverts commit',
+              'fix lint',
+          }
           lines = subprocess.check_output(
               ['git', 'log', '--pretty=format:%s%n%b', os.environ["PREVIOUS"] + '..${{ github.sha }}'],
               text=True,
@@ -136,6 +140,8 @@ jobs:
                       prefix = "other"
               else:
                   prefix = "other"
+              if any(line.startswith(x) for x in ignore):
+                  continue
               if prefix not in contents:
                   contents[prefix] = ["## :%s: %s" % categories[prefix]]
               contents[prefix].append(line)
