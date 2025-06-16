@@ -123,11 +123,11 @@ jobs:
               'other': ('information_source', 'Примечания'),
           }
           lines = subprocess.check_output(
-              ['git', 'log', '--pretty-format:"%s%n%b"', os.environ["PREVIOUS"] + '..${{ github.sha }}'],
+              ['git', 'log', '--pretty-format:%s%n%b', os.environ["PREVIOUS"] + '..${{ github.sha }}'],
               text=True,
           )
           contents = {}
-          matcher = re.compile(r'^(' + '|'.join(categories) + '|[a-z]+)(?:\([^)]+\))?: *(.*)')
+          matcher = re.compile(r'^(' + '|'.join(categories) + r'|[a-z]+)(?:\([^)]+\))?: *(.*)')
           for line in filter(bool, map(str.strip, lines.splitlines())):
               if m := matcher.match(line):
                   prefix = m.group(1)
