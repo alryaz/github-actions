@@ -49,7 +49,7 @@ jobs:
           echo "component=$(basename custom_components/*)" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Install jq
-        run: sudo apt-get install -y jq || sudo apt-get update && sudo apt-get install -y jq
+        run: command -v jq >/dev/null 2>&1 || sudo apt-get install -y jq || sudo apt-get update && sudo apt-get install -y jq
 
       - name: Get current version and compatibility
         id: get_current
