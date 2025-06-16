@@ -138,7 +138,7 @@ jobs:
                   prefix = "other"
               if prefix not in contents:
                   contents[prefix] = ["## :%s: %s" % categories[prefix]]
-              contents.setdefault(prefix, set()).add(line)
+              contents[prefix].append(line)
           print('changelog<<EOF')
           for category in categories:
               if category not in contents:
