@@ -1,0 +1,193 @@
+# common-workflows repo ▸ .github/workflows/prerelease-on-bump.yml
+name: Prerelease on Version Bump
+
+on:
+  workflow_call:
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+      TELEGRAM_TOKEN:
+        required: true
+      TELEGRAM_TO:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  detect:
+    name: Detect Component & Versions
+    runs-on: ubuntu-latest
+    outputs:
+      component: ${{ steps.detect.outputs.component }}
+      compatibility: ${{ steps.get_current.compatibility }}
+      current: ${{ steps.get_current.outputs.current }}
+      previous: ${{ steps.get_prev.outputs.previous }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect integration directory
+        id: detect
+        run: |
+          DIR_COUNT=$(find custom_components/* -maxdepth 0 -type d | wc -l)
+          if [ "$DIR_COUNT" -gt "1" ]; then
+            echo "❌ More than one component detected in the repository"
+            exit 1
+          elif [ "$DIR_COUNT" -lt "1" ]; then
+            echo "❌ Components not found in the repository"
+            exit 1
+          fi
+          echo "component=$(basename custom_components/*)" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Get current version and compatibility
+        id: get_current
+        env:
+          MANIFEST: custom_components/${{ steps.detect.outputs.component }}/manifest.json
+        run: |
+          current=$(jq -r '.version' "${MANIFEST}")
+          # Notice that we append "v" in front of the version here
+          echo "current=v${current}" | tee -a "${GITHUB_OUTPUT}"
+
+          compatibility=$(jq -r '.homeassistant' "${MANIFEST}")
+          echo "compatibility=${compatibility}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Fail-fast if tag exists
+        env:
+          CHECK_TAG: ${{ steps.get_current.outputs.current }}
+        run: |
+          echo "Checking if tag ${CHECK_TAG} exists..."
+          if git rev-parse "${CHECK_TAG}" >/dev/null 2>&1; then
+            echo "❌ Tag '${CHECK_TAG}' already exists."
+            exit 1
+          else
+            echo "✅ Tag '${CHECK_TAG}' does not exist."
+          fi
+
+      - name: Get previous version/tag
+        id: get_prev
+        run: |
+          previous=$(git tag --list "v*" --sort=-creatordate | head -n1)
+          if [ -z "$previous" ]; then
+            echo "::notice::Hooray, this is an initial commit!"
+            previous=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "previous=${previous}" | tee -a "${GITHUB_OUTPUT}"
+
+  prerelease:
+    name: Build & Publish Release
+    needs: detect
+    if: needs.detect.outputs.current != needs.detect.outputs.previous
+    runs-on: ubuntu-latest
+    env:
+      COMPONENT: ${{ needs.detect.outputs.component }}
+      CURRENT: ${{ needs.detect.outputs.current }}
+      PREVIOUS: ${{ needs.detect.outputs.previous }}
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build CHANGELOG
+        id: changelog
+        run: |
+          LOG=$(git log --pretty=format:"%s%n%b" "${PREVIOUS}"..${{ github.sha }})
+          breaking="" features="" fixes="" changes="" others=""
+          while IFS= read -r l; do
+            case "$l" in
+              BREAKING CHANGE: *) breaking+="- ${#BREAKING CHANGE*}"$\n';;
+              feat: *) features+="- ${l#feat*}"$'\n';;
+              fix: *) fixes+="- ${l#fix*}"$'\n';;
+              refactor: *) changes+="- ${l#refactor*}"$'\n';;
+              chore: bump v*) continue;;  # Ignore version updates
+              "") ;;
+              *) others+="- $l"$'\n';;
+            esac
+          done <<< "$LOG"
+          out=""
+          [ -n "$features" ] && out+="## :new: Нововведения\n\n$features\n"
+          [ -n "$fixes" ]    && out+="## :bug: Исправления\n\n$fixes\n"
+          [ -n "$changes" ]  && out+="## :wrench: Изменения\n\n$changes\n"
+          [ -n "$others" ]   && out+="## :information_source: Примечания\n\n$others\n"
+          {
+            echo 'changelog<<EOF'
+            echo -e "${out%$'\n'}"
+            echo 'EOF'
+          } | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Create prerelease
+        id: create_release
+        uses: actions/github-script@v7
+        env:
+          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
+        with:
+          script: |
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              tag_name: process.env.CURRENT,
+              name:     process.env.CURRENT,
+              body:     process.env.CHANGELOG,
+              prerelease: true
+            });
+
+      - name: Zip component
+        run: |
+          cd "custom_components/${COMPONENT}"
+          zip -r ../release.zip .
+
+      - name: Upload ZIP asset
+        uses: svenstaro/upload-release-action@2.9.0
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: v${{ env.CURRENT }}
+          file: ./custom_components/release.zip
+          asset_name: ${{ env.COMPONENT }}.zip
+          overwrite: true
+
+  notify:
+    name: Notify Telegram
+    needs: [detect, prerelease]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh jq curl
+
+      - name: Prepare prerelease message
+        id: prepare
+        env:
+          CHANGELOG: ${{ needs.prerelease.outputs.changelog }}
+          VERSION: ${{ needs.detect.outputs.current }}
+          HAMIN: ${{ needs.detect.outputs.compatibility }}
+        run: |
+          REPO="${GITHUB_REPOSITORY##*/}"
+          HACS="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${VERSION}/hacs.json"
+
+          {
+            echo "message<<EOF"
+            echo "✅ Новый релиз **${VERSION}** проекта **${REPO}** опубликован!"
+            echo
+            echo "Ссылка на GitHub: $URL"
+            echo "Совместимость: HA ≥${compatibility}"
+            echo
+            echo "#$REPO" | awk -F'-' '{for (i=1; i<=NF; i++) printf i==1 ? tolower($i) : toupper(substr($i,1,1)) tolower(substr($i,2)); print ""}'
+            echo "#homeassistant"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Send Telegram message
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: ${{ steps.prepare.outputs.message }}
+          format: markdown
