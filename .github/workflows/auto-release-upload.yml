@@ -130,7 +130,7 @@ jobs:
           [ -n "$others" ]   && out+="## :information_source: Примечания\n\n$others\n"
           {
             echo 'changelog<<EOF'
-            echo -e "${out%$'\n'}"
+            echo -e "${out}"
             echo 'EOF'
           } | tee -a "${GITHUB_OUTPUT}"
 
