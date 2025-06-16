@@ -123,8 +123,9 @@ jobs:
               'other': ('information_source', 'Примечания'),
           }
           ignore = {
-              'This reverts commit',
-              'fix lint',
+              (None, 'This reverts commit'),  # ignore revert commits
+              (None, 'fix lint'),  # ignore linting
+              ('chore', 'bump v'),  # ignore version bumps
           }
           lines = subprocess.check_output(
               ['git', 'log', '--pretty=format:%s%n%b', os.environ["PREVIOUS"] + '..${{ github.sha }}'],
@@ -133,15 +134,14 @@ jobs:
           contents = {}
           matcher = re.compile(r'^(' + '|'.join(categories) + r'|[a-z]+)(?:\([^)]+\))?: *(.*)')
           for line in filter(bool, map(str.strip, lines.splitlines())):
+              prefix = "other"
               if m := matcher.match(line):
-                  prefix = m.group(1)
+                  prefix = m.group(1).lower()
                   line = m.group(2)
-                  if prefix not in categories:
-                      prefix = "other"
-              else:
-                  prefix = "other"
-              if any(line.startswith(x) for x in ignore):
+              if any(p in (None, prefix) and line.startswith(l) for p, l in ignore):
                   continue
+              if prefix not in categories:
+                  prefix = "other"
               if prefix not in contents:
                   contents[prefix] = ["## :%s: %s" % categories[prefix]]
               contents[prefix].append(line)
