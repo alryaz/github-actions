@@ -110,42 +110,42 @@ jobs:
       - name: Build CHANGELOG
         id: changelog
         run: |
-          LOG=$(git log --pretty=format:"%s%n%b" "${PREVIOUS}"..${{ github.sha }})
-          breaking="" features="" fixes="" changes="" others=""
-          while IFS= read -r line; do
-            if [ "$line" = "" ]; then
-              continue
-            fi
-            if [[ "$line" =~ ^([a-z]+|BREAKING CHANGE)(\[[^]]*\])?:\ (.*) ]]; then
-              prefix="${BASH_REMATCH[1]}"
-              line="${BASH_REMATCH[3]}"
-            else
-              prefix="other"
-            fi
-            if [ "$prefix" = "chore" ] && [ "$line" = "bump v"* ]; then
-              continue
-            fi
-            line+="- $line"$'\n'
-            case "$prefix" in
-              BREAKING CHANGE) breaking+=$line;;
-              feat) features+=$line;;
-              fix) fixes+=$line;;
-              refactor) changes+=$line;;
-              "") ;;
-              *) others+=$line;;
-            esac
-          done <<< "$LOG"
-          out=""
-          [ -n "$breaking" ] && out+="## :warning: BREAKING CHANGE\n\n$breaking\n"
-          [ -n "$features" ] && out+="## :new: Нововведения\n\n$features\n"
-          [ -n "$fixes" ]    && out+="## :bug: Исправления\n\n$fixes\n"
-          [ -n "$changes" ]  && out+="## :wrench: Изменения\n\n$changes\n"
-          [ -n "$others" ]   && out+="## :information_source: Примечания\n\n$others\n"
-          {
-            echo 'changelog<<EOF'
-            echo -e "${out%$'\n'}"
-            echo 'EOF'
-          } | tee -a "${GITHUB_OUTPUT}"
+          python3 - <<'EOF' | tee -a "${GITHUB_OUTPUT}"
+          import subprocess
+          import os
+          import re
+
+          categories = {
+              'BREAKING CHANGE': ('warning', 'BREAKING CHANGE'),
+              'feat': ('new', 'Нововведения'),
+              'fix': ('bug', 'Исправления'),
+              'refactor': ('wrench', 'Изменения'),
+              'other': ('information_source', 'Примечания'),
+          }
+          lines = subprocess.check_output(
+              ['git', 'log', '--pretty-format:"%s%n%b"', os.environ["PREVIOUS"] + '..${{ github.sha }}'],
+              text=True,
+          )
+          contents = {}
+          matcher = re.compile(r'^(' + '|'.join(categories) + '|[a-z]+)(?:\([^)]+\))?: *(.*)')
+          for line in filter(bool, map(str.strip, lines.splitlines())):
+              if m := matcher.match(line):
+                  prefix = m.group(1)
+                  line = m.group(2)
+                  if prefix not in categories:
+                      prefix = "other"
+              else:
+                  prefix = "other"
+              if prefix not in contents:
+                  contents[prefix] = ["## :" + icon + ": " + title]
+              contents.setdefault(prefix, set()).add(line)
+          print('changelog<<EOF')
+          for category, (icon, title) in categories.items():
+              if category not in contents:
+                  continue
+              print("\n- ".join(contents[category]) + "\n")
+          print('EOF')
+          EOF
 
       - name: Create prerelease
         id: create_release
@@ -182,8 +182,7 @@ jobs:
   notify:
     name: Notify Telegram
     needs: [detect, prerelease]
-    runs-on: ubuntu-latest
-    steps:
+    runs-on: ubuntu-lates  steps:
       - name: Install GitHub CLI
         run: |
           sudo apt-get update
