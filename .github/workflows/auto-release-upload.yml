@@ -60,7 +60,7 @@ jobs:
           # Notice that we append "v" in front of the version here
           echo "current=v${current}" | tee -a "${GITHUB_OUTPUT}"
 
-          compatibility=$(jq -r '.homeassistant' "${MANIFEST}")
+          compatibility=$(jq -r '.homeassistant' hacs.json)
           echo "compatibility=${compatibility}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Fail-fast if tag exists
