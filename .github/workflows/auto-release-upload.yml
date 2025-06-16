@@ -112,18 +112,31 @@ jobs:
         run: |
           LOG=$(git log --pretty=format:"%s%n%b" "${PREVIOUS}"..${{ github.sha }})
           breaking="" features="" fixes="" changes="" others=""
-          while IFS= read -r l; do
-            case "$l" in
-              BREAKING\ CHANGE:\ *) breaking+="- ${#BREAKING CHANGE*}"$'\n';;
-              feat:\ *) features+="- ${l#feat*}"$'\n';;
-              fix:\ *) fixes+="- ${l#fix*}"$'\n';;
-              refactor:\ *) changes+="- ${l#refactor*}"$'\n';;
-              chore:\ bump\ v*) continue;;  # Ignore version updates
+          while IFS= read -r line; do
+            if [ "$line" = "" ]; then
+              continue
+            fi
+            if [[ "$line" =~ ^([a-z]+|BREAKING CHANGE)(\[[^]]*\])?:\ (.*) ]]; then
+              prefix="${BASH_REMATCH[1]}"
+              line="${BASH_REMATCH[3]}"
+            else
+              prefix="other"
+            fi
+            if [ "$prefix" = "chore" ] && [ "$line" = "bump v"* ]; then
+              continue
+            fi
+            line+="- $line"$'\n'
+            case "$prefix" in
+              BREAKING CHANGE) breaking+=$line;;
+              feat) features+=$line;;
+              fix) fixes+=$line;;
+              refactor) changes+=$line;;
               "") ;;
-              *) others+="- $l"$'\n';;
+              *) others+=$line;;
             esac
           done <<< "$LOG"
           out=""
+          [ -n "$breaking" ] && out+="## :warning: BREAKING CHANGE\n\n$breaking\n"
           [ -n "$features" ] && out+="## :new: Нововведения\n\n$features\n"
           [ -n "$fixes" ]    && out+="## :bug: Исправления\n\n$fixes\n"
           [ -n "$changes" ]  && out+="## :wrench: Изменения\n\n$changes\n"
