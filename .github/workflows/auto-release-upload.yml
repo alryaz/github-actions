@@ -114,7 +114,7 @@ jobs:
           breaking="" features="" fixes="" changes="" others=""
           while IFS= read -r l; do
             case "$l" in
-              BREAKING\ CHANGE:\ *) breaking+="- ${#BREAKING CHANGE*}"$\n';;
+              BREAKING\ CHANGE:\ *) breaking+="- ${#BREAKING CHANGE*}"$'\n';;
               feat:\ *) features+="- ${l#feat*}"$'\n';;
               fix:\ *) fixes+="- ${l#fix*}"$'\n';;
               refactor:\ *) changes+="- ${l#refactor*}"$'\n';;
@@ -129,9 +129,9 @@ jobs:
           [ -n "$changes" ]  && out+="## :wrench: Изменения\n\n$changes\n"
           [ -n "$others" ]   && out+="## :information_source: Примечания\n\n$others\n"
           {
-            echo "changelog<<'EOF'"
-            echo -n "${out}"
-            echo "EOF"
+            echo 'changelog<<EOF'
+            echo -e "${out%$'\n'}"
+            echo 'EOF'
           } | tee -a "${GITHUB_OUTPUT}"
 
       - name: Create prerelease
