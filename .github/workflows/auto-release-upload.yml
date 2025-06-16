@@ -55,10 +55,15 @@ jobs:
         id: get_current
         env:
           MANIFEST: custom_components/${{ steps.detect.outputs.component }}/manifest.json
+          IS_DRY_RUN: ${{ inputs.dry-run }}
         run: |
-          current=$(jq -r '.version' "${MANIFEST}")
-          # Notice that we append "v" in front of the version here
-          echo "current=v${current}" | tee -a "${GITHUB_OUTPUT}"
+          if [ "${IS_DRY_RUN}" = "true" ]; then
+            current=v9999.99.99
+          else
+            # Notice that we append "v" in front of the version here
+            current=v$(jq -r '.version' "${MANIFEST}")
+          fi
+          echo "current=${current}" | tee -a "${GITHUB_OUTPUT}"
 
           compatibility=$(jq -r '.homeassistant' hacs.json)
           echo "compatibility=${compatibility}" | tee -a "${GITHUB_OUTPUT}"
