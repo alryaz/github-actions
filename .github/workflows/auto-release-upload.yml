@@ -137,10 +137,10 @@ jobs:
               else:
                   prefix = "other"
               if prefix not in contents:
-                  contents[prefix] = ["## :" + icon + ": " + title]
+                  contents[prefix] = ["## :%s: %s" % category[prefix]]
               contents.setdefault(prefix, set()).add(line)
           print('changelog<<EOF')
-          for category, (icon, title) in categories.items():
+          for category in categories:
               if category not in contents:
                   continue
               print("\n- ".join(contents[category]) + "\n")
